@@ -1,12 +1,14 @@
 package org.sidia.pdmdemo;
 
 import com.samsungxr.ITouchEvents;
+import com.samsungxr.SXRCameraRig;
 import com.samsungxr.SXRContext;
 import com.samsungxr.SXRMaterial;
 import com.samsungxr.SXRMesh;
 import com.samsungxr.SXRNode;
 import com.samsungxr.SXRPicker;
 import com.samsungxr.SXRRenderData;
+import com.samsungxr.SXRTransform;
 import com.samsungxr.io.SXRCursorController;
 import com.samsungxr.io.SXRGazeCursorController;
 import com.samsungxr.io.SXRInputManager;
@@ -14,6 +16,7 @@ import com.samsungxr.mixedreality.SXRMixedReality;
 import com.samsungxr.physics.SXRRigidBody;
 
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
 import java.util.EnumSet;
 
@@ -72,6 +75,14 @@ public class DemoUtils {
         });
     }
 
+    static void resetDynamicBody(SXRNode sxrNode, Matrix4f localMatrix) {
+        sxrNode.getTransform().setModelMatrix(localMatrix);
+        SXRRigidBody rb = (SXRRigidBody)sxrNode.getComponent(SXRRigidBody.getComponentType());
+        rb.setLinearVelocity(0f, 0f, 0f);
+        rb.setAngularVelocity(0f, 0f, 0f);
+        rb.reset(false);
+    }
+
     static SXRNode createQuadPlane(SXRContext context)
     {
         SXRNode node = new SXRNode(context);
@@ -91,12 +102,23 @@ public class DemoUtils {
         return node;
     }
 
-    static void resetDynamicBody(SXRNode sxrNode, Matrix4f localMatrix) {
-        SXRRigidBody rb = (SXRRigidBody)sxrNode.getComponent(SXRRigidBody.getComponentType());
-        sxrNode.getTransform().setModelMatrix(localMatrix);
-        rb.setLinearVelocity(0f, 0f, 0f);
-        rb.setAngularVelocity(0f, 0f, 0f);
-        rb.reset(false);
+    static Vector3f calcForce(SXRNode target, SXRCameraRig cameraRig) {
+        Matrix4f m_ori = cameraRig.getTransform().getModelMatrix4f();
+        Vector3f v_ori = new Vector3f();
+        m_ori.getTranslation(v_ori);
+
+        Matrix4f m_tgt = target.getTransform().getModelMatrix4f();
+        Vector3f v_tgt = new Vector3f();
+        m_tgt.getTranslation(v_tgt);
+
+        v_tgt.sub(v_ori);
+        v_tgt.y = 0;
+        v_tgt.normalize();
+        v_tgt.x *= 10000f;
+        v_tgt.y = 1000f;
+        v_tgt.z *= 10000f;
+
+        return v_tgt;
     }
 
 }

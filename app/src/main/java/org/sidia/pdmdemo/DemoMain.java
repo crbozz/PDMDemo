@@ -89,19 +89,6 @@ public class DemoMain extends SXRMain {
     private IAnchorEvents anchorEvents = new IAnchorEvents() {
         @Override
         public void onAnchorStateChange(SXRAnchor sxrAnchor, SXRTrackingState sxrTrackingState) {
-            board.reset();
-        }
-    };
-
-    private SXRDrawFrameListener drawFrameListener = new SXRDrawFrameListener() {
-        @Override
-        public void onDrawFrame(float v) {
-            Matrix4f mat = plane.getOwnerObject().getChildByIndex(0).getTransform().getModelMatrix4f();
-            SXRNode boardNode = board.getOwnerObject();
-            mat.m31(boardNode.getTransform().getPositionY());
-            boardNode.getTransform().setModelMatrix(mat);
-            boardNode.getTransform().setScaleZ(1f);
-            board.reset(false);
         }
     };
 
@@ -141,26 +128,11 @@ public class DemoMain extends SXRMain {
                 return;
             }
 
-//            if (sxrNode == mixedReality.getPassThroughObject()) {
-//                return;
-//            }
-
             String name = sxrNode.getName();
             if (!name.equals("board")) {
-                Matrix4f m_ori = getSXRContext().getMainScene().getMainCameraRig().getTransform().getModelMatrix4f();
-                Vector3f v_ori = new Vector3f();
-                m_ori.getTranslation(v_ori);
-
-                Matrix4f m_tgt = sxrNode.getTransform().getModelMatrix4f();
-                Vector3f v_tgt = new Vector3f();
-                m_tgt.getTranslation(v_tgt);
-
-                v_tgt.sub(v_ori);
-                v_tgt.y = 0;
-                v_tgt.normalize();
-
+                Vector3f force = DemoUtils.calcForce(sxrNode, getSXRContext().getMainScene().getMainCameraRig());
                 SXRRigidBody rb = (SXRRigidBody) sxrNode.getComponent(SXRRigidBody.getComponentType());
-                rb.applyCentralForce(v_tgt.x * 10000f, 1000f, v_tgt.z * 10000f);
+                rb.applyCentralForce(force.x, force.y, force.z);
             }
         }
 
@@ -187,6 +159,18 @@ public class DemoMain extends SXRMain {
         mug.attachComponent(meshCollider2);
     }
 
+    private SXRDrawFrameListener drawFrameListener = new SXRDrawFrameListener() {
+        @Override
+        public void onDrawFrame(float v) {
+            Matrix4f mat = plane.getOwnerObject().getChildByIndex(0).getTransform().getModelMatrix4f();
+            SXRNode boardNode = board.getOwnerObject();
+            mat.m31(boardNode.getTransform().getPositionY());
+            boardNode.getTransform().setModelMatrix(mat);
+            boardNode.getTransform().setScaleZ(1f);
+            board.reset(false);
+        }
+    };
+
     private void initPhysics() {
         SXRWorld world = new SXRWorld(getSXRContext());
         world.setGravity(0f, -200f, 0f);
@@ -203,12 +187,13 @@ public class DemoMain extends SXRMain {
         rb.setCcdSweptSphereRadius(5f);
         mug.attachComponent(rb);
 
-        SXRNode boardNode = new SXRNode(getSXRContext());
 //        SXRNode boardNode = new SXRCubeNode(getSXRContext(), true);
 //        boardNode.setName("board");
 //        SXRMaterial material = new SXRMaterial(getSXRContext(), SXRMaterial.SXRShaderType.Phong.ID);
 //        material.setDiffuseColor(0f, 1f, 0f, 1f);
 //        boardNode.getRenderData().setMaterial(material);
+
+        SXRNode boardNode = new SXRNode(getSXRContext());
 
         Matrix4f mat = plane.getOwnerObject().getChildByIndex(0).getTransform().getModelMatrix4f();
         boardNode.getTransform().setModelMatrix(mat);
