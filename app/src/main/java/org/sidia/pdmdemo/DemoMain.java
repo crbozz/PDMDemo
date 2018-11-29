@@ -52,6 +52,8 @@ public class DemoMain extends SXRMain {
     private IPlaneEvents planeEvents = new IPlaneEvents() {
         @Override
         public void onStartPlaneDetection(IMixedReality iMixedReality) {
+            // Must init input manager after plane detection is started to have monoscopic touch
+            // properly working
             DemoUtils.initInputManager(getSXRContext(), touchEvents, mixedReality.getScreenDepth());
         }
 
@@ -63,12 +65,14 @@ public class DemoMain extends SXRMain {
         @Override
         public void onPlaneDetected(SXRPlane sxrPlane) {
             if (sxrPlane.getPlaneType() == SXRPlane.Type.VERTICAL) {
+                // Vertical planes are not wanted :(
                 return;
             }
 
             if (plane == null) {
-                plane = sxrPlane;
+                // Only one plane will be used
 
+                plane = sxrPlane;
                 final SXRNode node = DemoUtils.createQuadPlane(getSXRContext());
                 node.attachComponent(plane);
                 getSXRContext().getMainScene().addNode(node);
@@ -92,6 +96,7 @@ public class DemoMain extends SXRMain {
         }
     };
 
+    // If any of the objects passes this limit it will be put back to its initial position
     private float bottom = -1000f;
     @Override
     public void onStep() {
@@ -123,6 +128,8 @@ public class DemoMain extends SXRMain {
         @Override
         public void onTouchEnd(SXRNode sxrNode, SXRPicker.SXRPickedObject sxrPickedObject) {
             if (rubiks.getParent() == null) {
+                // This was the first detected touch
+
                 placeObjects();
                 initPhysics();
                 return;
@@ -130,6 +137,8 @@ public class DemoMain extends SXRMain {
 
             String name = sxrNode.getName();
             if (!name.equals("board")) {
+                // An object was touched and it will be pushed
+
                 Vector3f force = DemoUtils.calcForce(sxrNode, getSXRContext().getMainScene().getMainCameraRig());
                 SXRRigidBody rb = (SXRRigidBody) sxrNode.getComponent(SXRRigidBody.getComponentType());
                 rb.applyCentralForce(force.x, force.y, force.z);
@@ -162,16 +171,26 @@ public class DemoMain extends SXRMain {
     private SXRDrawFrameListener drawFrameListener = new SXRDrawFrameListener() {
         @Override
         public void onDrawFrame(float v) {
-            Matrix4f mat = plane.getOwnerObject().getChildByIndex(0).getTransform().getModelMatrix4f();
             SXRNode boardNode = board.getOwnerObject();
+
+            // Will position and rotate the invisible object according to the plane geometry
+            Matrix4f mat = plane.getOwnerObject().getChildByIndex(0).getTransform().getModelMatrix4f();
+
+            // Only Y coordinate will be kept the same
             mat.m31(boardNode.getTransform().getPositionY());
+
             boardNode.getTransform().setModelMatrix(mat);
+
+            // Since the plane geometry is a quad rotated by 90 degrees at X axis it is necessary
+            // to adjust Z scale for the invisible object
             boardNode.getTransform().setScaleZ(1f);
             board.reset(false);
         }
     };
 
     private void initPhysics() {
+        // Some settings are required for A.R. application due to scaling used by MixedReality
+
         SXRWorld world = new SXRWorld(getSXRContext());
         world.setGravity(0f, -200f, 0f);
         getSXRContext().getMainScene().getRoot().attachComponent(world);
@@ -193,6 +212,9 @@ public class DemoMain extends SXRMain {
 //        material.setDiffuseColor(0f, 1f, 0f, 1f);
 //        boardNode.getRenderData().setMaterial(material);
 
+        // A non visible object will be created and positioned as a "ghost" for the detected plane;
+        // this object will have a static body attached to it thus it will seem like the plane
+        // has physics attached to it
         SXRNode boardNode = new SXRNode(getSXRContext());
 
         Matrix4f mat = plane.getOwnerObject().getChildByIndex(0).getTransform().getModelMatrix4f();
@@ -211,11 +233,14 @@ public class DemoMain extends SXRMain {
         boardNode.attachComponent(board);
         getSXRContext().getMainScene().addNode(boardNode);
 
+        // Must continuously update the invisible object so that it will keep "covering" the plane
         getSXRContext().registerDrawFrameListener(drawFrameListener);
     }
 
+    // These matrices will be used to restore the initial position and rotation for the objects
     private Matrix4f rubiksMat;
     private Matrix4f mugMat;
+
     private void placeObjects() {
         Matrix4f mat = plane.getTransform().getModelMatrix4f();
         float x = mat.m30();
